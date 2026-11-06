@@ -26,3 +26,4 @@
 .side::-webkit-scrollbar{width:6px}.side::-webkit-scrollbar-thumb{background:#d4af3766;border-radius:6px}
 .cpb{display:block;margin-top:6px}
 @media(max-width:760px){.side{overflow-y:hidden;overflow-x:auto}}
+.card.focus{border-color:var(--gold);box-shadow:0 0 30px #d4af3733}

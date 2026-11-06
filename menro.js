@@ -4,13 +4,14 @@ const L=document.createElement('link');L.rel='stylesheet';L.href='menro.css';doc
 const H24=864e5,pk=a=>a[Math.floor(Math.random()*a.length)];
 
 /* ===== 1) Gemini: ربط المفتاح + إعادة محاولة + موديلات بديلة + Nano Banana ===== */
+const gk=()=>{const k=((DB.ai||{}).k||'').trim();return k=='-'?'':k};
 let ML=null,MK='';
-async function mlist(){const k=((DB.ai||{}).k||'').trim();if(!k)return[];if(ML&&MK==k)return ML;try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',{headers:{'x-goog-api-key':k}});const j=await r.json();if(!r.ok)return[];ML=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>m.name.replace('models/',''));MK=k;return ML}catch(e){return[]}}
+async function mlist(){const k=gk();if(!k)return[];if(ML&&MK==k)return ML;try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',{headers:{'x-goog-api-key':k}});const j=await r.json();if(!r.ok)return[];ML=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>m.name.replace('models/',''));MK=k;return ML}catch(e){return[]}}
 const ver=n=>+((n.match(/gemini-(\d+(?:\.\d+)?)/)||[])[1]||0),pv=n=>/preview|exp/.test(n)?1:0,lt=n=>/lite/.test(n)?1:0;
 const txtM=l=>l.filter(n=>/^gemini-/.test(n)&&/flash/.test(n)&&!/image|tts|live|audio|embed|robotics|computer|native|thinking/.test(n)).sort((a,b)=>pv(a)-pv(b)||ver(b)-ver(a)||lt(a)-lt(b));
 const imgM=l=>l.filter(n=>/gemini/.test(n)&&/image/.test(n)&&!/tts|live|audio/.test(n)).sort((a,b)=>pv(a)-pv(b)||ver(b)-ver(a));
 window.gem=async function(contents,json,model,img){
- const k=((DB.ai||{}).k||'').trim();if(!k)throw new Error('NOKEY');
+ const k=gk();if(!k)throw new Error('NOKEY');
  const L=await mlist(),has=n=>!L.length||L.includes(n)||/latest/.test(n);
  let m=(model||(img?'':((DB.ai||{}).m||'gemini-flash-latest'))).trim();if(!img&&/image/i.test(m))m='';
  const chain=[...new Set((img?[m,...imgM(L),...(L.length?[]:['gemini-2.5-flash-image'])]:[m,'gemini-flash-latest',...txtM(L).slice(0,3),'gemini-flash-lite-latest']).filter(x=>x&&has(x)))];
@@ -52,7 +53,7 @@ window.genIdeas=function(){const t=T(v('tt'));if(!t.id)return toast('أضف مد
  KINDS.concat(XK).forEach(k=>ANG.forEach(a=>{const tg=pk(S.tg.concat(TG));all.push({ti:k[0]+' - '+S.n,br:`${k[1]}.\nالستايل: ${a}.\nعناصر مقترحة: ${S.el}.\nالألوان: ${S.cl}.\nالمدرس: ${t.name}.`,tg,po:`${tg} مع ${t.name}${t.subject?' - مادة '+t.subject:''}`,st:a})}));
  IDS=all.sort(()=>Math.random()-.5);IN=20;paint(t,s?S.n:'')};
 window.aiIdeas=async function(){const t=T(v('tt'));if(!t.id)return toast('أضف مدرس أولاً');if(!aiOn())return noAI();$('#ideas').innerHTML='<span class="mut"><i class="spin"></i>جاري توليد 20 فكرة...</span>';
- try{const j=pj(await ai(`أنت مدير إبداعي في شركة تصميم سوشيال ميديا للمدرسين. اقترح 20 فكرة مختلفة تماماً لبوستات أو أغلفة لمدرس مادة "${t.subject||'عامة'}" اسمه "${t.name}". ${v('ti')?'المطلوب: '+v('ti')+'.':''} كل فكرة فيها: ti عنوان التاسك، br بريف تفصيلي للمصمم (التكوين والألوان والخطوط والعناصر)، tg تاج لاين قصير، po نص البوست. أجب JSON فقط: {"ideas":[{"ti":"","br":"","tg":"","po":""}]}`,[],true));IDS=j.ideas||j;IN=20;paint(t,'ذكاء اصطناعي')}catch(e){$('#ideas').innerHTML='';errAI(e)}};
+ try{const j=pj(await ai(`أنت مدير إبداعي في شركة تصميم سوشيال ميديا للمدرسين. اقترح 20 فكرة مختلفة تماماً لبوستات أو أغلفة لمدرس مادة "${t.subject||'عامة'}" اسمه "${t.name}". ${v('ti')?'المطلوب: '+v('ti')+'.':''} ${v('occ')?'المناسبة: '+v('occ')+'.':''} كل فكرة فيها: ti عنوان التاسك، br بريف تفصيلي للمصمم (التكوين والألوان والخطوط والعناصر)، tg تاج لاين قصير، po نص البوست. أجب JSON فقط: {"ideas":[{"ti":"","br":"","tg":"","po":""}]}`,[],true));IDS=j.ideas||j;IN=20;paint(t,'ذكاء اصطناعي')}catch(e){$('#ideas').innerHTML='';errAI(e)}};
 
 /* ===== 3) عداد 24 ساعة + إنذار قبل آخر ساعتين ===== */
 const links=t=>[...new Set(String(t.drv||'').split('\n').concat(String(T(t.teacherId).dr||'').split('\n')).map(u=>u.trim()).filter(Boolean))].map(u=>/^https?:/.test(u)?u:'https://'+u);
@@ -79,7 +80,7 @@ function ext(){document.title='MENRO Agency';
  const m=$('#am');if(m&&m.tagName=='SELECT'){const a=DB.ai||{};m.outerHTML=`<input id="am" list="ml" value="${esc(a.m||MD[0])}" style="direction:ltr"><datalist id="ml">${MD.map(x=>`<option value="${x}">`).join('')}</datalist><label>موديل الصور (Nano Banana) · اكتب اسم أي موديل صور من AI Studio</label><input id="aim" list="il" value="${esc(DB.im||'')}" placeholder="تلقائي: أحدث موديل صور متاح" style="direction:ltr" oninput="DB.im=this.value.trim();save()"><datalist id="il">${IM.map(x=>`<option value="${x}">`).join('')}</datalist><p class="sm mut">في المساعد الذكي ابدأ رسالتك بـ <b>صورة:</b> عشان يولّد صورة.</p>`}
  const c=$('#cm');if(c)c.placeholder='اكتب سؤالك... (لتوليد صورة ابدأ بـ: صورة: )'}
 const _r=window.render;
-window.render=function(){_r();ext();tick();try{if(U&&window.Notification&&Notification.permission=='default')Notification.requestPermission()}catch(e){}};
+window.render=function(){fixK();_r();ext();tick();try{if(U&&window.Notification&&Notification.permission=='default')Notification.requestPermission()}catch(e){}};
 setInterval(tick,1000);setInterval(chk,30000);setTimeout(chk,2000);
 /* ===== 5) مقاس + درايف لكل تاسك + طلب تعديل + شاشة تفاصيل كبيرة ===== */
 const SZ=['بوست مربع 1080×1080','بوست طولي 1080×1350','ستوري / ريلز 1080×1920','ثمنيل يوتيوب 1280×720','غلاف فيسبوك 820×312','بانر 1920×600','حسب البريف'];
@@ -150,6 +151,59 @@ ext=function(){_ext2();
  if(U&&U.role=='manager'&&slen()>3.8e6&&!$('#stw')){const h=document.querySelector('.hi');if(h)h.insertAdjacentHTML('afterend',`<div class="card ban" id="stw">${ic('flame')}<b>مساحة التخزين قربت تخلص</b><button class="btn o s" onclick="backup()">خذ نسخة</button><button class="btn o s" onclick="cleanRefs()">نظّف الرفرنس</button></div>`)}
  if($('#ml'))mlist().then(l=>{const a=$('#ml'),b=$('#il');if(a)a.innerHTML=MD.concat(txtM(l)).map(x=>`<option value="${x}">`).join('');if(b)b.innerHTML=imgM(l).concat(IM).map(x=>`<option value="${x}">`).join('')});
  document.querySelectorAll('#cb .msg.m').forEach(m=>{if(!m.querySelector('.cpb')&&m.textContent.trim()!='...'){const b=document.createElement('button');b.className='btn o s cpb';b.textContent='نسخ';b.onclick=()=>cpT((m.querySelector('span')||m).textContent);m.appendChild(b)}})};
+
+/* ===== 8) ChatGPT للنصوص والأفكار والبريف (Gemini للصور فقط) + 10 إضافات ===== */
+let OL=null,OK='';
+function fixK(){DB.ai=DB.ai||{};if(((DB.oa||{}).k||'').trim()&&!(DB.ai.k||'').trim())DB.ai.k='-'}
+document.addEventListener('click',()=>setTimeout(fixK,0));
+async function olist(){const k=((DB.oa||{}).k||'').trim();if(!k)return[];if(OL&&OK==k)return OL;try{const r=await fetch('https://api.openai.com/v1/models',{headers:{Authorization:'Bearer '+k}});const j=await r.json();if(!r.ok)return[];OL=(j.data||[]).map(x=>x.id);OK=k;return OL}catch(e){return[]}}
+const ov=n=>+((n.match(/^gpt-(\d+(?:\.\d+)?)/)||[])[1]||0);
+const rk=x=>/^gpt-4[\w.-]*mini$/.test(x)?0:/mini/.test(x)?1:2;
+const oaM=l=>l.filter(n=>/^gpt-/.test(n)&&!/audio|realtime|image|transcribe|tts|search|instruct|embedding|moderation|codex|chat-latest|-\d{4}-\d{2}-\d{2}$|-\d{4}$/.test(n)).sort((a,b)=>rk(a)-rk(b)||ov(b)-ov(a));
+const oerr=(st,j)=>st==401?'مفتاح ChatGPT غير صحيح، راجعه من platform.openai.com':st==429?(((j.error||{}).code=='insufficient_quota')?'رصيد حساب OpenAI خلص، اشحن من صفحة الفواتير':'ضغط على ChatGPT، استنى دقيقة وجرّب تاني'):st==404?'موديل ChatGPT غير متاح، حدّث قائمة الموديلات':'خطأ ChatGPT: '+String((j.error||{}).message||st).slice(0,60);
+const toOA=c=>c.map(m=>{const r=m.role=='model'?'assistant':'user',p=m.parts||[],im=p.filter(x=>x.inline_data||x.inlineData),tx=p.map(x=>x.text).filter(Boolean).join('\n');if(!im.length)return{role:r,content:tx};return{role:r,content:[{type:'text',text:tx},...im.map(x=>{const d=x.inline_data||x.inlineData;return{type:'image_url',image_url:{url:'data:'+(d.mime_type||d.mimeType||'image/jpeg')+';base64,'+d.data}}})]}});
+async function oai(msgs,json){const o=DB.oa||{},k=(o.k||'').trim(),custom=!!(o.u||'').trim()&&!/api\.openai\.com/.test(o.u),u=(custom?o.u.trim():'https://api.openai.com/v1').replace(/\/$/,'');
+ const L=custom?[]:await olist();let chain=custom?[(o.m||'').trim()]:[...new Set([(o.m||'').trim(),...oaM(L).slice(0,3)].filter(x=>x&&(!L.length||L.includes(x))))];if(!chain.filter(Boolean).length)chain=['gpt-4o-mini'];
+ let last;
+ for(const m of chain){try{
+  const r=await fetch(u+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+k},body:JSON.stringify({model:m,messages:json?[{role:'system',content:'Respond with a valid JSON object only.'},...msgs]:msgs,...(json?{response_format:{type:'json_object'}}:{})})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){const e=new Error(oerr(r.status,j));e.st=r.status;throw e}
+  const t=(((j.choices||[])[0]||{}).message||{}).content;if(!t){const e=new Error('رد فاضي من ChatGPT');e.st=503;throw e}return t
+ }catch(e){last=e;if(e.st==404||e.st==503||e.st==500)continue;throw e}}
+ throw last}
+const gem0=window.gem;
+window.gem=async function(contents,json,model,img){if(!img&&((DB.oa||{}).k||'').trim()){try{return await oai(toOA(contents),json)}catch(e){if(!gk())throw e}}return gem0(contents,json,model,img)};
+window.testOA=async()=>{try{const r=await oai([{role:'user',content:'رد بكلمة واحدة فقط: تمام'}],0);toast('ChatGPT شغال ✓ '+r.slice(0,20))}catch(e){errAI(e)}};
+const _rm=window.refModels;window.refModels=async()=>{OL=null;await olist();return _rm()};
+const _bk2=backup;backup=function(){_bk2();try{const o=JSON.parse($('#bk').value);delete o.oa;$('#bk').value=JSON.stringify(o)}catch(e){}const cy=$('#cy');if(cy&&cy.onclick){const f=cy.onclick,oa=DB.oa,im=DB.im;cy.onclick=()=>{f();if(oa)DB.oa=oa;if(im)DB.im=im;save()}}};
+window.dd=n=>new Date(Date.now()+n*864e5).toISOString().slice(0,10);
+window.aiT=function(id,k){if(!aiOn())return noAI();const t=DB.tasks.find(y=>y.id==id),te=T(t.teacherId),b=`التاسك: ${t.title}. المدرس: ${te.name} (${te.subject||'-'}). المقاس: ${t.size||'حسب البريف'}. البريف: ${t.brief||'-'}. التاج لاين: ${t.tagline||'-'}. نص البوست: ${t.post||'-'}.`;
+ aiShow(k=='p'?'خطة التنفيذ':'فهّمني البريف',(k=='p'?'أنت مصمم خبير. اكتب بالعربية المصرية خطة تنفيذ بخطوات مرتبة مع تقدير وقت لكل خطوة والإجمالي، ونقاط تدقيق قبل التسليم. ':'اشرح للمصمم هذا البريف بالعربية المصرية ببساطة: المطلوب بالظبط، العناصر الإجبارية، وأي نقص أو غموض لازم يسأل عنه الـ CEO. ')+b)};
+window.msgD=async function(id){if(!aiOn())return noAI();const t=DB.tasks.find(y=>y.id==id),d=D(t.designerId);modal('<h3>رسالة للمصمم</h3><p class="mut sm"><i class="spin"></i>جاري الكتابة...</p>');
+ try{const o=await ai(`اكتب رسالة واتساب قصيرة ومحترمة بالعربية المصرية من الـ CEO للمصمم "${d.name}" يسأله عن حالة تاسك "${t.title}" للمدرس ${T(t.teacherId).name} موعده ${t.due}${late(t)?' وهو متأخر':''}. اكتب الرسالة فقط.`);
+  modal(`<h3>رسالة للمصمم</h3><textarea id="bk" style="direction:rtl;font-size:14px">${esc(o)}</textarea><div class="row"><button class="btn" id="cy">${ic('wa')}فتح واتساب</button><button class="btn o" onclick="closeM()">إغلاق</button></div>`);
+  $('#cy').onclick=()=>{const n=num(d.wa);if(!n)return toast('لا يوجد رقم واتساب للمصمم');wa(n,v('bk'))}}catch(e){closeM();errAI(e)}};
+window.sumAI=function(){if(!aiOn())return noAI();const L=DB.tasks.filter(t=>t.status!='done').map(t=>`- ${t.title} | ${T(t.teacherId).name} | ${D(t.designerId).name} | ${pri[t.priority]} | تسليم ${t.due}${late(t)?' (متأخر)':''}${t.rev?' | تعديل '+t.rev:''}`).join('\n')||'لا يوجد';
+ aiShow('ملخص اليوم',`أنت مساعد مدير لوكالة تصميم. اكتب بالعربية المصرية ملخصاً تنفيذياً لليوم: أهم الأولويات، المتأخر، حمل كل مصمم، وتوصية بإعادة التوزيع لو فيه ضغط. التاسكات المفتوحة:\n${L}\nتم تسليمه هذا الشهر: ${DB.tasks.filter(t=>t.status=='done'&&mk(t.doneAt)==thisM).length}`)};
+window.dict=function(){const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R)return toast('المتصفح ده مش بيدعم الإملاء الصوتي');const r=new R();r.lang='ar-EG';r.onresult=e=>{$('#tb').value=($('#tb').value+' '+e.results[0][0].transcript).trim();toast('تمت إضافة الكلام للبريف')};r.onerror=()=>toast('تعذر الإملاء الصوتي');try{r.start();toast('اتكلم دلوقتي...')}catch(e){toast('تعذر بدء الميكروفون')}};
+const _ot3=openT;openT=function(id){_ot3(id);const t=DB.tasks.find(x=>x.id==id),d=document.querySelector('.mdl .dact');if(!t||!d||!U)return;
+ const M=U.role=='manager';d.insertAdjacentHTML('afterbegin',(!M&&t.status!='done'?`<button class="btn o" onclick="aiT('${id}','e')">${ic('bulb')}فهّمني البريف</button><button class="btn o" onclick="aiT('${id}','p')">${ic('clock')}خطة وتقدير وقت</button>`:'')+(M&&t.status!='done'?`<button class="btn o" onclick="msgD('${id}')">${ic('wa')}رسالة تذكير للمصمم</button>`:''))};
+const _ad3=window.addT;window.addT=function(){const sh=v('tb').trim().length<15,n=DB.tasks.length;_ad3();if(DB.tasks.length>n&&sh)setTimeout(()=>toast('تنبيه: البريف قصير، ضيف تفاصيل علشان المصمم'),1000)};
+const OCC=['بداية الترم','قبل الامتحانات','نتائج الطلاب','رمضان','عيد','يوم المعلم','عودة للمدارس','الإجازة الصيفية'],CQ=['اكتب جدول محتوى أسبوعي لمدرس','رد على استفسار ولي أمر','عناوين جذابة لحصة مراجعة','إعلان لحجز مقاعد','رسالة تهنئة بالنتيجة'];
+const _ext3=ext;
+ext=function(){_ext3();
+ const o=DB.oa||{},gc=[...document.querySelectorAll('.card h3')].find(h=>h.textContent.includes('Gemini من جوجل'));
+ if(gc){gc.innerHTML=gc.innerHTML.replace('Gemini من جوجل','Gemini من جوجل (للصور فقط)');if(!$('#oac'))gc.closest('.card').insertAdjacentHTML('beforebegin',`<div class="card" id="oac" style="max-width:560px;margin-top:16px"><h3>${ic('bulb')} ChatGPT (الأساسي للنصوص والأفكار والبريف) ${(o.k||'').trim()?'<span class="bd done">مفتاح محفوظ</span>':'<span class="bd low">غير مفعّل</span>'}</h3><p class="sm mut">حساب ChatGPT المجاني على الموقع مالوش مفتاح API. المفتاح بيتعمل من platform.openai.com وبيشتغل برصيد صغير. تقدر كمان تحط رابط مزوّد متوافق (Groq / OpenRouter) في الحقل الأخير.</p><label>مفتاح OpenAI</label><input id="oak" type="password" value="${esc(o.k)}" placeholder="sk-..." style="direction:ltr" oninput="DB.oa=DB.oa||{};DB.oa.k=this.value.trim();save()"><label>الموديل (اختياري، الافتراضي تلقائي)</label><input id="oam" list="oal" value="${esc(o.m)}" placeholder="تلقائي" style="direction:ltr" oninput="DB.oa=DB.oa||{};DB.oa.m=this.value.trim();save()"><datalist id="oal"></datalist><label>رابط API (اختياري لمزوّد متوافق)</label><input id="oau" value="${esc(o.u)}" placeholder="https://api.openai.com/v1" style="direction:ltr" oninput="DB.oa=DB.oa||{};DB.oa.u=this.value.trim();save()"><button class="btn" onclick="testOA()">${ic('check')}اختبار ChatGPT</button><p class="sm mut">المفتاح بيتخزن في متصفحك فقط، واستخدم مفتاح بحد صرف منخفض.</p></div>`)}
+ const ak=$('#ak');if(ak&&ak.value=='-')ak.value='';
+ if($('#oal'))olist().then(l=>{const e=$('#oal');if(e)e.innerHTML=oaM(l).map(x=>`<option value="${x}">`).join('')});
+ const h1=[...document.querySelectorAll('h1.gold')].find(h=>h.textContent.includes('(Gemini)'));if(h1)h1.textContent='المساعد الذكي (ChatGPT)';
+ const cc=[...document.querySelectorAll('.chips')].find(c=>c.textContent.includes('اكتب كابشن لبوست'));if(cc&&!cc.querySelector('[data-q]'))cc.insertAdjacentHTML('beforeend',CQ.map(q=>`<button class="chip" data-q="${q}" onclick="$('#cm').value=this.dataset.q;sendCh()">${q}</button>`).join(''));
+ const ids=$('#ideas');if(ids&&!$('#occ'))ids.insertAdjacentHTML('beforebegin',`<select id="occ" style="margin-top:8px"><option value="">مناسبة للأفكار بالذكاء الاصطناعي (اختياري)</option>${OCC.map(x=>`<option>${x}</option>`).join('')}</select>`);
+ const lb=[...document.querySelectorAll('label')].find(l=>l.textContent.trim().startsWith('البريف والوصف'));if(lb&&!$('#mic'))lb.insertAdjacentHTML('afterend',`<div><button type="button" class="btn o s" id="mic" onclick="dict()">🎤 إملاء صوتي</button></div>`);
+ const td=$('#tdue');if(td&&!$('#dq'))td.insertAdjacentHTML('afterend',`<div class="chips" id="dq">${[['النهاردة',0],['بكرة',1],['بعد 3 أيام',3],['أسبوع',7]].map(x=>`<button type="button" class="chip" onclick="$('#tdue').value=dd(${x[1]})">${x[0]}</button>`).join('')}</div>`);
+ const dh=[...document.querySelectorAll('.bar h1')].find(h=>h.textContent.includes('لوحة التحكم'));if(dh&&!$('#sumb'))dh.parentNode.insertAdjacentHTML('beforeend',`<button class="btn s" id="sumb" onclick="sumAI()">${ic('bulb')}ملخص اليوم</button>`);
+ if(U&&U.role!='manager'&&view=='tasks'){const c=document.querySelector('.main .grid .card[id^="t-"]');if(c&&!c.classList.contains('dn')&&!c.querySelector('.fcl')){c.classList.add('focus');c.insertAdjacentHTML('afterbegin','<p class="fcl gold sm" style="margin:0 0 8px"><b>ابدأ بالتاسك ده أولاً</b></p>')}}};
 
 render();
 })();
