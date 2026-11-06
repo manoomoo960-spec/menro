@@ -1,0 +1,11 @@
+.logo{display:flex;align-items:center;gap:10px}
+.lgi{width:100%;max-width:190px;height:auto;flex:none}
+.login .logo{justify-content:center}.login .lgi{max-width:270px}
+.cd{display:flex;gap:8px;align-items:center;margin:10px 0 4px;padding:9px 13px;border-radius:12px;background:#d4af3715;border:1px solid #d4af3755;color:var(--gold);font-size:14px}
+.cd b{font-size:18px;letter-spacing:1px;direction:ltr}
+.cd.warn{background:#e5484d22;border-color:var(--red);color:#ff7a7f;animation:blink 1s infinite}
+.cd.over{background:#e5484d33;border-color:var(--red);color:#ff7a7f}
+.lk.dr{padding:11px 14px;font-size:14px;border-width:2px;cursor:pointer}
+.lk.dr:hover{background:#2fbf7118}
+.msg .th{width:min(260px,100%);height:auto;max-height:320px}
+.ilist{max-height:60vh;overflow:auto;padding-inline-end:4px}
