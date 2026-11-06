@@ -49,9 +49,12 @@ window.aiIdeas=async function(){const t=T(v('tt'));if(!t.id)return toast('أضف
  try{const j=pj(await ai(`أنت مدير إبداعي في شركة تصميم سوشيال ميديا للمدرسين. اقترح 20 فكرة مختلفة تماماً لبوستات أو أغلفة لمدرس مادة "${t.subject||'عامة'}" اسمه "${t.name}". ${v('ti')?'المطلوب: '+v('ti')+'.':''} كل فكرة فيها: ti عنوان التاسك، br بريف تفصيلي للمصمم (التكوين والألوان والخطوط والعناصر)، tg تاج لاين قصير، po نص البوست. أجب JSON فقط: {"ideas":[{"ti":"","br":"","tg":"","po":""}]}`,[],true));IDS=j.ideas||j;IN=20;paint(t,'ذكاء اصطناعي')}catch(e){$('#ideas').innerHTML='';errAI(e)}};
 
 /* ===== 3) عداد 24 ساعة + إنذار قبل آخر ساعتين ===== */
-const drv=t=>String(T(t.teacherId).dr||'').split('\n').map(u=>u.trim()).filter(Boolean).map(u=>`<a class="lk dr" href="${esc(/^https?:/.test(u)?u:'https://'+u)}" target="_blank" rel="noopener">${ic('dr')}<b>درايف صور المدرس · اضغط للفتح</b><span>${esc(u.replace(/^https?:\/\/(www\.)?/,''))}</span></a>`).join('');
+const links=t=>[...new Set(String(t.drv||'').split('\n').concat(String(T(t.teacherId).dr||'').split('\n')).map(u=>u.trim()).filter(Boolean))].map(u=>/^https?:/.test(u)?u:'https://'+u);
+const drv=t=>links(t).map(u=>`<a class="lk dr" href="${esc(u)}" target="_blank" rel="noopener">${ic('dr')}<b>افتح درايف صور المدرس</b><span>${esc(u.replace(/^https?:\/\/(www\.)?/,''))}</span></a>`).join('');
 const _tc=window.taskCard;
-window.taskCard=function(t,M){let h=_tc(t,M);const box=(t.status=='prog'&&t.startAt?`<div class="cd" data-s="${t.startAt}"></div>`:'')+(t.status!='done'&&drv(t)?`<div class="lks">${drv(t)}</div>`:'');return box?h.replace('<p class="sm"><b class="gold">البريف:',()=>box+'<p class="sm"><b class="gold">البريف:'):h};
+window.taskCard=function(t,M){let h=_tc(t,M);const box=(t.status=='prog'&&t.startAt?`<div class="cd" data-s="${t.startAt}"></div>`:'')+(t.size||t.rev?`<p class="sm">${t.size?`<b class="gold">المقاس:</b> ${esc(t.size)} `:''}${t.rev?`<span class="bd urgent">تعديل رقم ${t.rev}</span>`:''}</p>`:'')+(t.status!='done'&&drv(t)?`<div class="lks">${drv(t)}</div>`:'');
+ if(M&&t.status=='done')h=h.replace('<button class="btn r s" onclick="delT(',()=>`<button class="btn o s" onclick="revise('${t.id}')">${ic('undo')}طلب تعديل</button><button class="btn r s" onclick="delT(`);
+ return box?h.replace('<p class="sm"><b class="gold">البريف:',()=>box+'<p class="sm"><b class="gold">البريف:'):h};
 function tick(){const n=Date.now();document.querySelectorAll('.cd').forEach(e=>{const r=new Date(e.dataset.s).getTime()+H24-n,a=Math.abs(r),f=[a/36e5|0,a/6e4%60|0,a/1e3%60|0].map(x=>String(x|0).padStart(2,'0')).join(':');e.className='cd'+(r<0?' over':r<72e5?' warn':'');e.innerHTML=ic('clock')+' '+(r<0?'عدّى الـ24 ساعة بـ ':'باقي على التسليم ')+'<b>'+f+'</b>'})}
 const beep=()=>{try{const c=new AudioContext(),o=c.createOscillator();o.connect(c.destination);o.frequency.value=880;o.start();o.stop(c.currentTime+.5)}catch(e){}};
 function chk(){if(!U)return;DB.tasks.forEach(t=>{if(t.status!='prog'||!t.startAt||t.w2)return;if(U.role!='manager'&&t.designerId!=U.id)return;if(new Date(t.startAt).getTime()+H24-Date.now()>72e5)return;
@@ -72,5 +75,49 @@ function ext(){document.title='MENRO Agency';
 const _r=window.render;
 window.render=function(){_r();ext();tick();try{if(U&&window.Notification&&Notification.permission=='default')Notification.requestPermission()}catch(e){}};
 setInterval(tick,1000);setInterval(chk,30000);setTimeout(chk,2000);
+/* ===== 5) مقاس + درايف لكل تاسك + طلب تعديل + شاشة تفاصيل كبيرة ===== */
+const SZ=['بوست مربع 1080×1080','بوست طولي 1080×1350','ستوري / ريلز 1080×1920','ثمنيل يوتيوب 1280×720','غلاف فيسبوك 820×312','بانر 1920×600','حسب البريف'];
+const _ad=window.addT;
+window.addT=function(){const sz=v('tsz'),dv=v('tdrv').trim(),n=DB.tasks.length;_ad();if(DB.tasks.length>n){const t=DB.tasks[DB.tasks.length-1];t.size=sz;t.drv=dv;save();render()}};
+window.notifyD=function(id){const t=DB.tasks.find(x=>x.id==id),d=D(t.designerId);if(!num(d.wa))return toast('لا يوجد رقم واتساب للمصمم');const dr=links(t);
+ wa(num(d.wa),`تاسك جديد من MENRO Agency\nالمدرس: ${T(t.teacherId).name}\nالعنوان: ${t.title}\n${t.size?'المقاس: '+t.size+'\n':''}التسليم: ${t.due}\nالأولوية: ${pri[t.priority]}\n${dr.length?'درايف صور المدرس:\n'+dr.join('\n')+'\n':''}الرابط: ${location.href.split('#')[0]}#task-${t.id}`)};
+window.revise=function(id){ask('اكتب التعديلات المطلوبة على التصميم',x=>{x=x.trim();if(!x)return;const t=DB.tasks.find(y=>y.id==id);t.status='prog';t.startAt=new Date().toISOString();t.w2=0;delete t.doneAt;t.rev=(t.rev||0)+1;(t.notes=t.notes||[]).push({by:U.name,txt:'طلب تعديل: '+x,date:new Date().toISOString()});lg('طلب تعديل على '+t.title,'undo');save();render();
+ const n=num(D(t.designerId).wa);if(n)wa(n,`طلب تعديل من MENRO Agency\nالتاسك: ${t.title}\nالتعديلات: ${x}\nالمهلة: 24 ساعة من الآن\nالرابط: ${location.href.split('#')[0]}#task-${t.id}`);else toast('تم فتح التاسك للتعديل')})};
+function openT(id){const t=DB.tasks.find(x=>x.id==id);if(!t||!U)return;const te=T(t.teacherId),M=U.role=='manager',dr=links(t),sec=(n,b)=>b?`<div class="dsec"><h4>${n}</h4>${b}</div>`:'',A=[];
+ if(!M&&t.status=='new')A.push(`<button class="btn" onclick="closeM();start('${id}')">${ic('play')}ابدأ التنفيذ</button>`);
+ if(!M&&t.status!='done')A.push(`<button class="btn" style="background:linear-gradient(90deg,#2fbf71,#6ee7a8)" onclick="closeM();conf('تأكيد إنجاز التاسك؟',()=>finish('${id}'))">${ic('tk')}تم الإنجاز</button>`,`<button class="btn o" onclick="closeM();sel='${id}';go('upload')">${ic('up')}ارفع الشغل</button>`);
+ if(M&&t.status!='done')A.push(`<button class="btn o" onclick="closeM();notifyD('${id}')">${ic('wa')}أبلغ المصمم</button>`);
+ if(M&&t.status=='done')A.push(`<button class="btn o" onclick="closeM();revise('${id}')">${ic('undo')}طلب تعديل</button>`);
+ A.push(`<button class="btn o" onclick="closeM();noteT('${id}')">${ic('chat')}ملاحظة</button>`,`<button class="btn o" onclick="closeM();cpB('${id}')">${ic('log')}نسخ البريف</button>`);
+ modal(`<div class="dh"><div class="row">${av(te.photo,te.name,1)}<div style="flex:1;min-width:0"><h2 class="gold" style="margin:0">${esc(t.title)}</h2><div class="mut">${esc(te.name)}${te.subject?' · '+esc(te.subject):''}${M?' · المصمم: '+esc(D(t.designerId).name):''}</div></div></div>
+ <div class="row" style="flex-wrap:wrap;margin-top:10px"><span class="bd ${t.status=='done'?'done':t.status=='prog'?'prog':t.priority}">${t.status=='done'?st.done:t.status=='prog'?st.prog:pri[t.priority]}</span><span class="bd normal">${fd(t.due)}</span>${t.size?`<span class="bd normal">${esc(t.size)}</span>`:''}${t.rev?`<span class="bd urgent">تعديل رقم ${t.rev}</span>`:''}</div>${t.status=='prog'&&t.startAt?`<div class="cd" data-s="${t.startAt}"></div>`:''}<p class="sm" style="margin:8px 0 0">${dl(t)}</p></div>`
+ +sec('البريف',`<p class="dbig">${esc(t.brief)||'—'}</p>`)+sec('التاج لاين',t.tagline&&`<p class="dbig">${esc(t.tagline)}</p>`)+sec('نص البوست',t.post&&`<p class="dbig">${esc(t.post)}</p>`)
+ +sec('درايف صور المدرس',dr.length?dr.map(u=>`<a class="dbtn" href="${esc(u)}" target="_blank" rel="noopener">${ic('dr')}<span><b>افتح درايف صور المدرس</b><small>${esc(u.replace(/^https?:\/\/(www\.)?/,''))}</small></span></a>`).join(''):'<p class="mut">مفيش رابط درايف للمدرس ده. اطلب من الـ CEO يضيفه.</p>')
+ +sec('الرفرنس',(t.refs||[]).length&&`<div class="dgal">${t.refs.map(r=>`<img src="${r}" onclick="zoom(this.src)">`).join('')}</div>${(t.pal||[]).length?`<div class="pal">${t.pal.map(c=>`<i style="background:${c}"></i>`).join('')}</div>`:''}`)
+ +sec('ملاحظات',(t.notes||[]).length&&t.notes.map(n=>`<p class="sm nt">${ic('chat')}<b>${esc(n.by)}:</b> ${esc(n.txt)}</p>`).join(''))
+ +`<div class="dact">${A.join('')}<button class="btn o" onclick="closeM()">إغلاق</button></div>`);
+ const m=document.querySelector('.mdl');if(m)m.classList.add('big');tick()}
+document.addEventListener('click',e=>{const c=e.target.closest('.card[id^="t-"]');if(c&&!e.target.closest('button,a,input,select,textarea,img,.zoom'))openT(c.id.slice(2))});
+const _ext=ext;
+ext=function(){_ext();
+ const tg=$('#tg');if(tg&&!$('#tsz')){const g=tg.closest('.two');if(g)g.insertAdjacentHTML('beforebegin',`<label>المقاس</label><select id="tsz">${SZ.map(x=>`<option>${x}</option>`).join('')}</select><label>رابط درايف خاص بالتاسك (اختياري، يتضاف لرابط المدرس)</label><textarea id="tdrv" style="min-height:56px;direction:ltr"></textarea>`)}
+ const lb=[...document.querySelectorAll('label')].find(l=>l.textContent.includes('رابط درايف صور المدرس'));if(lb&&!lb.dataset.h){lb.dataset.h=1;lb.innerHTML+=' <span style="color:var(--gold)">· خلّي الصلاحية: Anyone with the link (Viewer) علشان المصمم يفتحه</span>'}};
+
+/* ===== 6) قائمة مراجعة + نسخ نصوص + كابشن AI + نسخ ألوان + Esc + تنبيه الدرايف ===== */
+const CK=['المقاس مطابق للمطلوب','الإملاء والنصوص مراجعة','اللوجو وبيانات التواصل موجودة','الألوان والخطوط حسب البريف','الجودة عالية من غير تكسير','التصميم مختلف عن الرفرنس'];
+window.cpT=function(x){const f=()=>{const a=document.createElement('textarea');a.value=x;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('تم النسخ')}catch(e){toast('تعذر النسخ')}a.remove()};try{navigator.clipboard.writeText(x).then(()=>toast('تم النسخ'),f)}catch(e){f()}};
+window.cpTx=id=>{const t=DB.tasks.find(y=>y.id==id);cpT([t.tagline&&'التاج لاين: '+t.tagline,t.post&&'البوست: '+t.post].filter(Boolean).join('\n'))};
+window.ckT=(id,i,on)=>{const t=DB.tasks.find(y=>y.id==id),s=new Set(t.ck||[]);on?s.add(i):s.delete(i);t.ck=[...s];save();const e=document.getElementById('ckn');if(e)e.textContent=t.ck.length+'/'+CK.length};
+window.capAI=function(id){if(!aiOn())return noAI();const t=DB.tasks.find(y=>y.id==id),te=T(t.teacherId);aiShow('كابشن وهاشتاجات',`اكتب بالعربية المصرية لبوست فيسبوك للمدرس "${te.name}" مادة ${te.subject||'-'}. العنوان: ${t.title}. ${t.post?'نص البوست: '+t.post+'.':''} ${t.brief?'البريف: '+t.brief+'.':''} المطلوب: 3 كابشنات مختلفة (قصير، متوسط، تحفيزي) مع إيموجي مناسب، ثم 15 هاشتاج مناسب.`)};
+const _ot=openT;
+openT=function(id){_ot(id);const t=DB.tasks.find(x=>x.id==id),d=document.querySelector('.mdl .dact');if(!t||!d)return;
+ const ck=t.status!='done'?`<div class="dsec"><h4>قائمة المراجعة قبل التسليم <span id="ckn" class="bd normal">${(t.ck||[]).length}/${CK.length}</span></h4>${CK.map((x,i)=>`<label class="ckl"><input type="checkbox" ${(t.ck||[]).includes(i)?'checked':''} onchange="ckT('${id}',${i},this.checked)">${x}</label>`).join('')}</div>`:'';
+ d.insertAdjacentHTML('beforebegin',ck);
+ d.insertAdjacentHTML('afterbegin',(t.tagline||t.post?`<button class="btn o" onclick="cpTx('${id}')">${ic('log')}نسخ التاج لاين والبوست</button>`:'')+`<button class="btn o" onclick="capAI('${id}')">${ic('bulb')}كابشن وهاشتاجات</button>`);
+ document.querySelectorAll('.mdl .pal i').forEach(i=>{const m=(i.getAttribute('style')||'').match(/#[0-9a-f]{6}/i);if(m){i.style.cursor='pointer';i.title='اضغط لنسخ '+m[0];i.onclick=()=>cpT(m[0])}})};
+document.addEventListener('keydown',e=>{if(e.key=='Escape'){const z=[...document.querySelectorAll('.zoom')].pop();if(z)z.remove()}});
+const _ad2=window.addT;
+window.addT=function(){const n=DB.tasks.length;_ad2();if(DB.tasks.length>n&&!links(DB.tasks[DB.tasks.length-1]).length)setTimeout(()=>toast('تنبيه: مفيش رابط درايف للمدرس ده، ضيفه علشان المصمم يلاقي الصور'),1800)};
+
 render();
 })();
