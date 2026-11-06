@@ -4,12 +4,18 @@ const L=document.createElement('link');L.rel='stylesheet';L.href='menro.css';doc
 const H24=864e5,pk=a=>a[Math.floor(Math.random()*a.length)];
 
 /* ===== 1) Gemini: ربط المفتاح + إعادة محاولة + موديلات بديلة + Nano Banana ===== */
+let ML=null,MK='';
+async function mlist(){const k=((DB.ai||{}).k||'').trim();if(!k)return[];if(ML&&MK==k)return ML;try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',{headers:{'x-goog-api-key':k}});const j=await r.json();if(!r.ok)return[];ML=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>m.name.replace('models/',''));MK=k;return ML}catch(e){return[]}}
+const ver=n=>+((n.match(/gemini-(\d+(?:\.\d+)?)/)||[])[1]||0),pv=n=>/preview|exp/.test(n)?1:0,lt=n=>/lite/.test(n)?1:0;
+const txtM=l=>l.filter(n=>/^gemini-/.test(n)&&/flash/.test(n)&&!/image|tts|live|audio|embed|robotics|computer|native|thinking/.test(n)).sort((a,b)=>pv(a)-pv(b)||ver(b)-ver(a)||lt(a)-lt(b));
+const imgM=l=>l.filter(n=>/gemini/.test(n)&&/image/.test(n)&&!/tts|live|audio/.test(n)).sort((a,b)=>pv(a)-pv(b)||ver(b)-ver(a));
 window.gem=async function(contents,json,model,img){
  const k=((DB.ai||{}).k||'').trim();if(!k)throw new Error('NOKEY');
- let m=model||(DB.ai.m||'gemini-2.5-flash').trim();
- if(!img&&/image/i.test(m))m='gemini-2.5-flash'; // موديلات الصور مش بترجع JSON/نص للميزات العادية
- const chain=img?[m]:[m,...['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash'].filter(x=>x!=m)];
- let err;
+ const L=await mlist(),has=n=>!L.length||L.includes(n)||/latest/.test(n);
+ let m=(model||(img?'':((DB.ai||{}).m||'gemini-flash-latest'))).trim();if(!img&&/image/i.test(m))m='';
+ const chain=[...new Set((img?[m,...imgM(L),...(L.length?[]:['gemini-2.5-flash-image'])]:[m,'gemini-flash-latest',...txtM(L).slice(0,3),'gemini-flash-lite-latest']).filter(x=>x&&has(x)))];
+ if(!chain.length)throw new Error('مفيش موديل متاح للمفتاح ده، جرّب تحدّث قائمة الموديلات من الإعدادات');
+ let first=null,last=null;
  for(const x of chain){for(let n=0;n<2;n++){try{
   const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+x+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':k},body:JSON.stringify({contents,generationConfig:img?{responseModalities:['TEXT','IMAGE']}:json?{responseMimeType:'application/json'}:{}})});
   const j=await r.json().catch(()=>({}));
@@ -18,15 +24,15 @@ window.gem=async function(contents,json,model,img){
   if(img)return{t,img:im?'data:'+(im.mimeType||im.mime_type||'image/png')+';base64,'+im.data:''};
   if(!t){const e=new Error('رد فاضي من الموديل');e.st=503;throw e}
   return t;
- }catch(e){err=e;if(e.st==429||e.st==503||e.st==500){await new Promise(r=>setTimeout(r,900));continue}if(e.st==404)break;throw e}}}
- throw err;
+ }catch(e){last=e;if(e.st==404||/no longer available|not found|not supported/i.test(e.message))break;if(e.st==429||e.st==503||e.st==500){first=first||e;await new Promise(r=>setTimeout(r,900));continue}throw e}}}
+ throw first||last;
 };
 window.sendCh=async function(){
  const q=v('cm').trim();if(!q)return;if(!aiOn())return noAI();
  const wantImg=/^(\/img|صورة:|ارسم)/.test(q),pic=CHI;CHI=null;
  CH.push({r:'u',t:q,img:pic});CH.push({r:'m',t:'...'});render();scr();
  try{
-  if(wantImg){const o=await gem([{role:'user',parts:[{text:q.replace(/^(\/img|صورة:)/,'')},...(pic?[{inline_data:{mime_type:'image/jpeg',data:pic.split(',')[1]}}]:[])]}],0,DB.im||'gemini-2.5-flash-image',1);
+  if(wantImg){const o=await gem([{role:'user',parts:[{text:q.replace(/^(\/img|صورة:)/,'')},...(pic?[{inline_data:{mime_type:'image/jpeg',data:pic.split(',')[1]}}]:[])]}],0,DB.im||'',1);
    if(!o.img)throw new Error('الموديل ماردش بصورة، جرّب وصف أوضح أو غيّر موديل الصور من الإعدادات');
    CH[CH.length-1]={r:'m',t:o.t||'تم توليد الصورة',img:o.img}}
   else{const h=CH.slice(0,-1).map(m=>({role:m.r=='u'?'user':'model',parts:[{text:m.t},...(m.img&&m.r=='u'?[{inline_data:{mime_type:'image/jpeg',data:m.img.split(',')[1]}}]:[])]}));
@@ -65,12 +71,12 @@ function chk(){if(!U)return;DB.tasks.forEach(t=>{if(t.status!='prog'||!t.startAt
 
 /* ===== 4) الهوية + الرفرنس لحد 10 + إعدادات Nano Banana ===== */
 window.addRefs=function(inp){[...inp.files].slice(0,Math.max(0,10-refBuf.length)).forEach(f=>{const r=new FileReader();r.onload=async()=>{const d=await rsz(r.result,800);if(refBuf.length>=10)return;refBuf.push(d);if(refBuf.length==1)palBuf=await pal(d);$('#rprev').innerHTML=refBuf.map(x=>`<img src="${x}">`).join('')};r.readAsDataURL(f)});if(inp.files.length>10-refBuf.length)toast('الحد الأقصى 10 صور')};
-const MD=['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.5-pro'],IM=['gemini-2.5-flash-image','gemini-3-pro-image-preview'];
+const MD=['gemini-flash-latest','gemini-flash-lite-latest','gemini-pro-latest'],IM=['gemini-2.5-flash-image','gemini-3-pro-image-preview'];
 function ext(){document.title='MENRO Agency';
  document.querySelectorAll('.logo').forEach(e=>e.innerHTML='<img class="lgi" src="logo.png" alt="MENRO Agency">');
  document.querySelectorAll('.login .mut').forEach(e=>e.textContent='MENRO Agency · منصة إدارة التصميم');
  const lb=[...document.querySelectorAll('label')].find(l=>l.textContent.includes('رفرنس للمصمم'));if(lb)lb.innerHTML=ic('img')+' رفرنس للمصمم (لحد 10 صور)';
- const m=$('#am');if(m&&m.tagName=='SELECT'){const a=DB.ai||{};m.outerHTML=`<input id="am" list="ml" value="${esc(a.m||MD[0])}" style="direction:ltr"><datalist id="ml">${MD.map(x=>`<option value="${x}">`).join('')}</datalist><label>موديل الصور (Nano Banana) · اكتب اسم أي موديل صور من AI Studio</label><input id="aim" list="il" value="${esc(DB.im||IM[0])}" style="direction:ltr" oninput="DB.im=this.value.trim();save()"><datalist id="il">${IM.map(x=>`<option value="${x}">`).join('')}</datalist><p class="sm mut">في المساعد الذكي ابدأ رسالتك بـ <b>صورة:</b> عشان يولّد صورة.</p>`}
+ const m=$('#am');if(m&&m.tagName=='SELECT'){const a=DB.ai||{};m.outerHTML=`<input id="am" list="ml" value="${esc(a.m||MD[0])}" style="direction:ltr"><datalist id="ml">${MD.map(x=>`<option value="${x}">`).join('')}</datalist><label>موديل الصور (Nano Banana) · اكتب اسم أي موديل صور من AI Studio</label><input id="aim" list="il" value="${esc(DB.im||'')}" placeholder="تلقائي: أحدث موديل صور متاح" style="direction:ltr" oninput="DB.im=this.value.trim();save()"><datalist id="il">${IM.map(x=>`<option value="${x}">`).join('')}</datalist><p class="sm mut">في المساعد الذكي ابدأ رسالتك بـ <b>صورة:</b> عشان يولّد صورة.</p>`}
  const c=$('#cm');if(c)c.placeholder='اكتب سؤالك... (لتوليد صورة ابدأ بـ: صورة: )'}
 const _r=window.render;
 window.render=function(){_r();ext();tick();try{if(U&&window.Notification&&Notification.permission=='default')Notification.requestPermission()}catch(e){}};
@@ -118,6 +124,32 @@ openT=function(id){_ot(id);const t=DB.tasks.find(x=>x.id==id),d=document.querySe
 document.addEventListener('keydown',e=>{if(e.key=='Escape'){const z=[...document.querySelectorAll('.zoom')].pop();if(z)z.remove()}});
 const _ad2=window.addT;
 window.addT=function(){const n=DB.tasks.length;_ad2();if(DB.tasks.length>n&&!links(DB.tasks[DB.tasks.length-1]).length)setTimeout(()=>toast('تنبيه: مفيش رابط درايف للمدرس ده، ضيفه علشان المصمم يلاقي الصور'),1800)};
+
+/* ===== 7) موديلات تتحدث تلقائي + 15 إضافة ===== */
+['<meta name="theme-color" content="#09090a">','<link rel="icon" href="logo.png">','<link rel="apple-touch-icon" href="logo.png">'].forEach(h=>document.head.insertAdjacentHTML('beforeend',h));
+let FD='',FT='';
+window.sFD=x=>{FD=x;tl()};window.sFT=x=>{FT=x;tl()};
+window.tl=function(){const el=$('#tl');if(!el)return;const x=DB.tasks.slice().reverse().filter(t=>(flt=='all'||(flt=='late'?late(t):flt=='urgent'?(t.priority=='urgent'&&t.status!='done'):flt=='today'?(t.status!='done'&&left(t)==0):t.status==flt))&&(!FD||t.designerId==FD)&&(!FT||t.teacherId==FT)&&(!q||(t.title+T(t.teacherId).name+D(t.designerId).name).toLowerCase().includes(q.toLowerCase())));el.innerHTML=x.map(t=>taskCard(t,1)).join('')||'<p class="mut">لا توجد تاسكات.</p>'};
+const slen=()=>{try{return(localStorage.getItem('bemro')||'').length}catch(e){return 0}};
+window.cleanRefs=()=>conf('مسح صور الرفرنس من التاسكات المسلّمة لتوفير مساحة؟',()=>{DB.tasks.forEach(t=>{if(t.status=='done'){delete t.refs;delete t.pal}});save();render();toast('تم تنظيف المساحة')});
+window.testAlert=()=>{beep();try{if(window.Notification){Notification.requestPermission().then(p=>{if(p=='granted')new Notification('MENRO Agency',{body:'تجربة الإنذار شغالة'})})}}catch(e){}toast('تجربة الإنذار: لو سمعت الصوت يبقى شغال')};
+window.refModels=async()=>{ML=null;const l=await mlist();toast(l.length?'تم التحديث: '+l.length+' موديل متاح':'تعذر جلب الموديلات، راجع المفتاح');ext()};
+window.dlBk=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([v('bk')],{type:'application/json'}));a.download='menro-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click()};
+window.ldBk=i=>{const f=i.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('#bk').value=r.result;toast('اضغط استرجاع لتأكيد الاستعادة')};r.readAsText(f)};
+const _bk=backup;backup=function(){_bk();const r=document.querySelector('.mdl .row');if(r)r.insertAdjacentHTML('afterbegin',`<button class="btn o" onclick="dlBk()">${ic('up')}تنزيل ملف</button><label class="btn o">رفع ملف<input type="file" accept=".json" hidden onchange="ldBk(this)"></label>`)};
+const _stm=stmt;stmt=function(id){_stm(id);const m=document.querySelector('.mdl');if(m)m.insertAdjacentHTML('beforeend',`<button class="btn o" style="margin-inline-start:8px" onclick="cpT(this.parentNode.innerText.replace(/إغلاق|نسخ كشف الحساب/g,'').trim())">نسخ كشف الحساب</button>`)};
+const _ot2=openT;openT=function(id){_ot2(id);const d=document.querySelector('.mdl .dact');if(d)d.insertAdjacentHTML('afterbegin',`<button class="btn o" onclick="cpT(location.href.split('#')[0]+'#task-${id}')">${ic('log')}نسخ رابط التاسك</button>`)};
+function chk2(){if(!U||U.role=='manager')return;DB.tasks.forEach(t=>{if(t.designerId!=U.id||t.status!='new'||t.w3||left(t)>1)return;t.w3=1;save();beep();toast('تذكير: تاسك "'+t.title+'" لسه ما اتبدأش وموعده قرب');try{if(Notification.permission=='granted')new Notification('MENRO Agency',{body:'تاسك لسه ما اتبدأش: '+t.title})}catch(e){}})}
+setInterval(chk2,60000);setTimeout(chk2,3000);
+const _ext2=ext;
+ext=function(){_ext2();
+ if(U){const n=DB.tasks.filter(t=>t.status!='done'&&(U.role=='manager'||t.designerId==U.id)).length;document.title=(n?'('+n+') ':'')+'MENRO Agency'}
+ const ch=[...document.querySelectorAll('.chips')].find(c=>c.textContent.includes('متأخر'));if(ch&&!ch.querySelector('[data-td]'))ch.insertAdjacentHTML('beforeend',`<button class="chip ${flt=='today'?'on':''}" data-td="1" onclick="setF('today')">النهاردة</button>`);
+ const tle=$('#tl');if(tle&&!$('#fdd'))tle.insertAdjacentHTML('beforebegin',`<div class="two" style="margin:10px 0"><select id="fdd" onchange="sFD(this.value)"><option value="">كل المصممين</option>${DB.designers.map(d=>`<option value="${d.id}" ${FD==d.id?'selected':''}>${esc(d.name)}</option>`).join('')}</select><select id="ftt" onchange="sFT(this.value)"><option value="">كل المدرسين</option>${DB.teachers.map(d=>`<option value="${d.id}" ${FT==d.id?'selected':''}>${esc(d.name)}</option>`).join('')}</select></div>`);
+ const sm=$('#smo');if(sm&&!$('#stg')){const L=slen(),p=Math.min(100,Math.round(L/5e4));sm.closest('.card').insertAdjacentHTML('afterend',`<div class="card" id="stg" style="max-width:560px;margin-top:16px"><h3>${ic('dr')} المساحة والأدوات</h3><div class="sc"><i style="width:${p}%"></i></div><p class="sm mut">المساحة المستخدمة ${p}% من حد المتصفح التقريبي</p><div class="row" style="flex-wrap:wrap"><button class="btn o s" onclick="cleanRefs()">تنظيف رفرنس المسلّم</button><button class="btn o s" onclick="refModels()">تحديث قائمة الموديلات</button><button class="btn o s" onclick="testAlert()">اختبار الإنذار</button></div></div>`)}
+ if(U&&U.role=='manager'&&slen()>3.8e6&&!$('#stw')){const h=document.querySelector('.hi');if(h)h.insertAdjacentHTML('afterend',`<div class="card ban" id="stw">${ic('flame')}<b>مساحة التخزين قربت تخلص</b><button class="btn o s" onclick="backup()">خذ نسخة</button><button class="btn o s" onclick="cleanRefs()">نظّف الرفرنس</button></div>`)}
+ if($('#ml'))mlist().then(l=>{const a=$('#ml'),b=$('#il');if(a)a.innerHTML=MD.concat(txtM(l)).map(x=>`<option value="${x}">`).join('');if(b)b.innerHTML=imgM(l).concat(IM).map(x=>`<option value="${x}">`).join('')});
+ document.querySelectorAll('#cb .msg.m').forEach(m=>{if(!m.querySelector('.cpb')&&m.textContent.trim()!='...'){const b=document.createElement('button');b.className='btn o s cpb';b.textContent='نسخ';b.onclick=()=>cpT((m.querySelector('span')||m).textContent);m.appendChild(b)}})};
 
 render();
 })();
